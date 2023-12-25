@@ -542,7 +542,7 @@ html.monospace-dark .Session.selected {
 }
 
 .Session > button {
-	margin-left: 4px;
+	margin: 0 4px;
 	padding: 0;
 	background: none;
 	border: none;
@@ -1182,6 +1182,13 @@ function Sessions({ sessionStorage, onSessionChange, disabled }) {
 		}
 	};
 
+	const copySession = () => {
+		const sessionObj = sessionStorage.sessions[sessionStorage.selectedSession];
+		const newId = sessionStorage.createSessionFromObject(sessionObj, false);
+
+		sessionStorage.renameSession(newId, `${sessionStorage.getProperty('name')}`);
+	};
+
 	const importSession = () => {
 		const fileInput = document.createElement("input");
 		fileInput.type = 'file';
@@ -1297,6 +1304,7 @@ function Sessions({ sessionStorage, onSessionChange, disabled }) {
 				<button disabled=${disabled} onClick=${startCreateSession}>Create</button>
 				<button disabled=${disabled} onClick=${importSession}>Import</button>
 				<button disabled=${disabled} onClick=${exportSession}>Export</button>
+				<button disabled=${disabled} onClick=${copySession}>Copy</button>
 			</div>
 		</div>`;
 }
@@ -1454,12 +1462,13 @@ class SessionStorage {
 		return newId;
 	}
 
-	createSessionFromObject(obj) {
+	createSessionFromObject(obj, is_json = true) {
 		const newId = this.getNewId();
 		this.sessions[newId] = {};
 		for (const [propertyName, value] of Object.entries(obj)) {
 			if (propertyName === 'darkMode') continue;
-			this.sessions[newId][propertyName] = JSON.parse(value);
+			if (is_json) value = JSON.parse(value);
+			this.sessions[newId][propertyName] = value;
 			this.savePropertyToStorage(newId, propertyName);
 		}
 		if (!this.sessions[newId].hasOwnProperty('name')) {
