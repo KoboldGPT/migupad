@@ -9,7 +9,7 @@
   -- You should have received a copy of the CC0 legalcode along with this
   -- work.  If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
   -->
-<title>mikupad</title>
+<title>migupad</title>
 <script type="importmap">
 {
 	"imports": {
@@ -1107,31 +1107,31 @@ function CollapsibleGroup({ label, expanded, children }) {
 		</div>`;
 }
 
-	function Modal({ isOpen, onClose, title, description, children, ...props }) {
-		if (!isOpen) {
-			return null;
-		}
-
-		return html`
-		<div className="modal-overlay" onClick=${onClose}>
-			<div className="modal-container">
-				<div className="modal" onClick=${(e) => e.stopPropagation()} ...${props}>
-					<div class="modal-title">${title}</div>
-					${ description=="" ? false : html`<div style=${{ whiteSpace: 'pre-line' }} class='modal-desc'>${description}</div>` }
-					<hr/>
-					${children}
-					<button
-					class="button-modal-top"
-					onClick=${onClose}>
-						<svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="-1 -1 10 10" xmlns="http://www.w3.org/2000/svg"><path d="M 0 1 L 3 4 L 0 7 L 1 8 L 4 5 L 7 8 L 8 7 L 5 4 L 8 1 L 7 0 L 4 3 L 1 0 L 1 0 Z"></path></svg>
-					</button>
-				</div>
-			</div>
-		</div>
-		`;
+function Modal({ isOpen, onClose, title, description, children, ...props }) {
+	if (!isOpen) {
+		return null;
 	}
 
-function Sessions({ sessionStorage, onSessionChange, disabled }) {
+	return html`
+	<div className="modal-overlay" onClick=${onClose}>
+		<div className="modal-container">
+			<div className="modal" onClick=${(e) => e.stopPropagation()} ...${props}>
+				<div class="modal-title">${title}</div>
+				${ description=="" ? false : html`<div style=${{ whiteSpace: 'pre-line' }} class='modal-desc'>${description}</div>` }
+				<hr/>
+				${children}
+				<button
+				class="button-modal-top"
+				onClick=${onClose}>
+					<svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="-1 -1 10 10" xmlns="http://www.w3.org/2000/svg"><path d="M 0 1 L 3 4 L 0 7 L 1 8 L 4 5 L 7 8 L 8 7 L 5 4 L 8 1 L 7 0 L 4 3 L 1 0 L 1 0 Z"></path></svg>
+				</button>
+			</div>
+		</div>
+	</div>
+	`;
+}
+
+function Sessions({ sessionStorage, disabled }) {
 	const [version, setVersion] = useState(0);
 	const [newSessionName, setNewSessionName] = useState('');
 	const [renameSessionName, setRenameSessionName] = useState('');
@@ -1139,54 +1139,55 @@ function Sessions({ sessionStorage, onSessionChange, disabled }) {
 	const [isCreating, setIsCreating] = useState(false);
 
 	useEffect(() => {
-		sessionStorage.onchange = () => setVersion(v => v + 1);
-		sessionStorage.onsessionchange = onSessionChange;
-		return () => {
-			sessionStorage.onchange = null;
-			sessionStorage.onsessionchange = null;
-		};
+		function incrementVersion() {
+			setVersion(v => v + 1);
+		}
+		sessionStorage.addEventListener('touchsession', incrementVersion);
+
+		return () => sessionStorage.removeEventListener('touchsession', incrementVersion);
 	}, []);
 
-	const switchSession = (sessionId) => {
-		if (sessionStorage.selectedSession != sessionId) {
-			sessionStorage.switchSession(+sessionId);
-		}
-	};
+	const switchSession = (sessionId) => sessionStorage.sessionSwitch(sessionId);
 
 	const startRenameSession = (sessionId, name) => {
 		setRenameSessionName(name);
 		setIsRenaming(sessionId);
 	};
 
-	const renameSession = (sessionId) => {
-		if (renameSessionName) {
-			sessionStorage.renameSession(sessionId, renameSessionName);
+	const renameSession = async (sessionId) => {
+		if (!renameSessionName)
+			return;
+
+		if (await sessionStorage.sessionRename(renameSessionName, sessionId))
 			setIsRenaming(false);
-		}
 	};
 
-	const deleteSession = (sessionId) => {
-		sessionStorage.deleteSession(sessionId);
+	const deleteSession = async (sessionId) => {
+		await sessionStorage.sessionDelete(sessionId);
 	};
 
-	const startCreateSession = () => {
-		setNewSessionName(`MikuPad #${sessionStorage.nextId + 1}`);
+	const startCreateSession = async () => {
+		setNewSessionName(`MiguPad`);
 		setIsCreating(true);
 	};
 
-	const createSession = () => {
-		if (newSessionName) {
-			const newId = sessionStorage.createSession(newSessionName);
-			sessionStorage.switchSession(newId);
-			setIsCreating(false);
-		}
+	const createSession = async () => {
+		if (!newSessionName)
+			return;
+
+		const sessionId = await sessionStorage.sessionCreate(newSessionName);
+		await sessionStorage.sessionSwitch(sessionId);
+		setIsCreating(false);
 	};
 
-	const copySession = () => {
-		const sessionObj = sessionStorage.sessions[sessionStorage.selectedSession];
-		const newId = sessionStorage.createSessionFromObject(sessionObj, false);
+	const copySession = async () => {
+		const session = await sessionStorage.sessionGet();
+		if (!session)
+			return;
 
-		sessionStorage.renameSession(newId, `${sessionStorage.getProperty('name')}`);
+		const sessionId = await sessionStorage.sessionSet(session);
+		await sessionStorage.sessionRename(session?.['name'] ?? 'Migupad copy', sessionId);
+		await sessionStorage.sessionSwitch(sessionId);
 	};
 
 	const importSession = () => {
@@ -1204,24 +1205,25 @@ function Sessions({ sessionStorage, onSessionChange, disabled }) {
 			}
 			reader.readAsText(file);
 		};
-		fileInput.func = (text) => {
-			const newId = sessionStorage.createSessionFromObject(JSON.parse(text));
-			sessionStorage.switchSession(newId);
+		fileInput.func = async (text) => {
+			const newId = await sessionStorage.sessionFromObject(JSON.parse(text));
+			sessionStorage.sessionSwitch(newId);
 		};
 		document.body.appendChild(fileInput);
 		fileInput.click();
 		document.body.removeChild(fileInput);
 	};
 
-	const exportSession = () => {
+	const exportSession = async () => {
 		var element = document.createElement('a');
-		const sessionObj = { ...sessionStorage.sessions[sessionStorage.selectedSession] };
+		const sessionObj = { ...await sessionStorage.sessionGet() };
 		for (const [key, value] of Object.entries(sessionObj)) {
 			// This is done for compatibility with localStorage export files.
+			if (key == 'id') continue;
 			sessionObj[key] = JSON.stringify(value);
 		}
 		element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(JSON.stringify(sessionObj)));
-		element.setAttribute('download', `${sessionStorage.getProperty('name')}.json`);
+		element.setAttribute('download', `${await sessionStorage.getProperty('name')}.json`);
 		element.style.display = 'none';
 		document.body.appendChild(element);
 		element.click();
@@ -1243,10 +1245,13 @@ function Sessions({ sessionStorage, onSessionChange, disabled }) {
 	}
 
 	const trashSvg = html`<svg fill="var(--color-light)" width="16" height="16" viewBox="0 0 490.646 490.646"><path d="m399.179 67.285-74.794.033L324.356 0 166.214.066l.029 67.318-74.802.033.025 62.914h307.739l-.026-63.046zM198.28 32.11l94.03-.041.017 35.262-94.03.041-.017-35.262zM91.465 490.646h307.739V146.359H91.465v344.287zm225.996-297.274h16.028v250.259h-16.028V193.372zm-80.14 0h16.028v250.259h-16.028V193.372zm-80.141 0h16.028v250.259H157.18V193.372z"/></svg>`;
+	const disTrashSvg = html`<svg fill="var(--color-light)" width="16" height="16" viewBox="0 0 80 130"><path d="m79.948 17.805-19.431 0.008988-0.007849-17.812-41.084 0.017496 0.007554 17.812-19.433 0.008998 0.0064748 16.647h79.948zm-52.192-9.3072 24.428-0.010905 0.0049 9.3302-24.428 0.0109zm-27.75 121.33h79.948v-91.097h-79.948zm58.712-78.658h4.1639v66.218h-4.1639zm-20.82 0h4.1639v66.218h-4.1639zm-20.82 0h4.1639v66.218h-4.1639z"/><rect fill="var(--color-dark)" transform="matrix(.62332 -.78196 0 1 0 0)" x="1.8615" y="102.16" width="124.7" height="26.1" /></svg>`;
 	const renameSvg = html`<svg fill="var(--color-light)" width="16" height="16" viewBox="0 0 512 448"><path style=${{ fillOpacity: 1, stroke: 'none', strokeWidth: 30, strokeLinecap: 'round', strokeMiterlimit: 4, strokeDasharray: 'none', strokeOpacity: 1 }} d="M0 96v256h320v-32H32V128h288V96H0zM416 96v32h64v192h-64v32h96V96h-96z" /><path style=${{ fillOpacity: 1, stroke: 'none', strokeWidth: 30, strokeLinecap: 'round', strokeMiterlimit: 4, strokeDasharray: 'none', strokeOpacity: 1 }} d="M352 636.362h32v384h-32z" transform="matrix(1, 0, 0, 1, 0, -604.3619995117188)" /><path style=${{ fillOpacity: 1, stroke: 'none', strokeWidth: 30, strokeLinecap: 'round', strokeMiterlimit: 4, strokeDasharray: 'none', strokeOpacity: 1 }} transform="matrix(0, 1, -1, 0, 0, -604.3619995117188)" d="M1020.362-448h32v64h-32zM1020.362-352h32v64h-32zM604.362-448h32v64h-32zM604.362-352h32v64h-32zM764.362-288h128v224h-128z" /></svg>`;
 
 	const confirmSvg = html`<svg width="16" height="16" viewBox="0 0 128 128"><circle cx="64" cy="64" r="64" fill="var(--color-dark)"/><path d="M54.3 97.2 24.8 67.7c-.4-.4-.4-1 0-1.4l8.5-8.5c.4-.4 1-.4 1.4 0L55 78.1l38.2-38.2c.4-.4 1-.4 1.4 0l8.5 8.5c.4.4.4 1 0 1.4L55.7 97.2c-.4.4-1 .4-1.4 0z" fill="var(--color-light)"/></svg>`;
 	const cancelSvg = html`<svg width="16" height="16" viewBox="0 0 128 128"><circle cx="64" cy="64" r="64" fill="var(--color-dark)"/><path d="M100.3 90.4 73.9 64l26.3-26.4c.4-.4.4-1 0-1.4l-8.5-8.5c-.4-.4-1-.4-1.4 0L64 54.1 37.7 27.8c-.4-.4-1-.4-1.4 0l-8.5 8.5c-.4.4-.4 1 0 1.4L54 64 27.7 90.3c-.4.4-.4 1 0 1.4l8.5 8.5c.4.4 1.1.4 1.4 0L64 73.9l26.3 26.3c.4.4 1.1.4 1.5.1l8.5-8.5c.4-.4.4-1 0-1.4z" fill="var(--color-light)"/></svg>`;
+
+	const currentSessionId = sessionStorage.sessionCurrentId();
 
 	return html`
 		<div className="Sessions ${disabled ? 'disabled' : ''}">
@@ -1263,15 +1268,17 @@ function Sessions({ sessionStorage, onSessionChange, disabled }) {
 								autoFocus
 							/>
 							<div className="flex-separator"></div>
-							<button onClick=${(e) => (createSession(), e.stopImmediatePropagation?.())}>${confirmSvg}</button>
-							<button onClick=${(e) => (setIsCreating(false), e.stopImmediatePropagation?.())}>${cancelSvg}</button>
+							<button onClick=${createSession}>${confirmSvg}</button>
+							<button onClick=${(e) => (setIsCreating(false))}>${cancelSvg}</button>
 						</a>
 					</li>
 				`}
-				${Object.entries(sessionStorage.sessions).reverse().map(([sessionId, session]) => html`
+				${sessionStorage.sessionsGetList().map(([sessionId, session]) => html`
 					<li key=${sessionId}>
-						<a className="Session ${sessionStorage.selectedSession == sessionId ? 'selected' : ''}"
-							onClick=${() => switchSession(sessionId)}>
+						<a className="Session ${sessionStorage.sessionCurrentId() == sessionId ? 'selected' : ''}"
+							onClick=${() => switchSession(sessionId)}
+							title="Id: ${sessionId}"
+						>
 							${isRenaming === sessionId ? html`
 								<input
 									type="text"
@@ -1282,18 +1289,25 @@ function Sessions({ sessionStorage, onSessionChange, disabled }) {
 									autoFocus
 								/>
 								<div className="flex-separator"></div>
-								<button onClick=${(e) => (renameSession(sessionId), e.stopImmediatePropagation())}>${confirmSvg}</button>
-								<button onClick=${(e) => (setIsRenaming(false), e.stopImmediatePropagation())}>${cancelSvg}</button>
+								<button onClick=${(e) => (renameSession(sessionId))}>${confirmSvg}</button>
+								<button onClick=${(e) => (setIsRenaming(false))}>${cancelSvg}</button>
 							` : html`
 								${session.name}
 								<div className="flex-separator"></div>
+								${currentSessionId != sessionId ? html`
+									<button
+										onClick=${(e) => (deleteSession(sessionId), e.stopPropagation())}>
+										${trashSvg}
+									</button>
+								` : html`
+									<button
+										onClick=${(e) => e.stopPropagation()}>
+										${disTrashSvg}
+									</button>`
+								}
 								<button
 									onClick=${(e) => (startRenameSession(sessionId, session.name), e.stopPropagation())}>
 									${renameSvg}
-								</button>
-								<button
-									onClick=${(e) => (deleteSession(sessionId), e.stopPropagation())}>
-									${trashSvg}
 								</button>
 							`}
 						</a>
@@ -1309,174 +1323,407 @@ function Sessions({ sessionStorage, onSessionChange, disabled }) {
 		</div>`;
 }
 
-class SessionStorage {
-	constructor(defaultPresets) {
-		this.nextId = +localStorage.getItem('nextSessionId');
-		this.dependents = {};
-		this.saveQueue = [];
-		this.saveTimer = setInterval(() => this.saveTimerHandler(), 1000);
-		this.sessions = {};
-		this.selectedSession = +localStorage.getItem('selectedSessionId');
-		this.sessionTemplate = { ...defaultPresets };
-		this.onchange = null;
-		this.onsessionchange = null;
-		this.loadFromStorage();
-	}
+class SessionStorage extends EventTarget {
+	constructor() {
+		super();
 
-	getNewId() {
-		this.nextId += 1;
-		localStorage.setItem('nextSessionId', this.nextId);
-		return this.nextId - 1;
-	}
+		const DATABASE_NAME = 'migupad_storage';
+		const DATABASE_VERSION = 1;
 
-	addDependent(name, callback) {
-		this.dependents[name] = this.dependents[name] || new Set();
-		this.dependents[name].add(callback);
-	}
+		this._sessions = {};
+		this._sessionsLoaded = false;
+		this._currentSession = this.constructor._formatKey(localStorage.getItem('currentSession'));
+		this._writeQueue = [];
 
-	updateDependents(name, newValue) {
-		if (this.dependents[name]) {
-			for (const callback of this.dependents[name]) {
-				callback(newValue);
-			}
-		}
-	}
+		this._dbState = new Promise((resolve, reject) => {
+			let request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
+			request.onsuccess = (event) => {
+				resolve({isReady: true, instance: event.target.result})
 
-	saveTimerHandler() {
-		while (this.saveQueue.length) {
-			const [sessionId, propertyName] = this.saveQueue.pop().split('/');
-			this.savePropertyToStorage(+sessionId, propertyName);
-		}
-	}
+				this._writeTimer = setInterval(() => {
+					this._storageWriteSessions(this._writeQueue);
+					this._writeQueue = [];
+				}, 1000);
 
-	loadFromStorage() {
-		const needsMigration = localStorage.getItem('selectedSessionId') == null;
-		if (needsMigration) {
-			//
-			// Legacy migration code, don't touch!
-			// This will be removed in the future.
-			//
-			const newId = this.createSession('MikuPad #1');
-			for (const propertyName of Object.keys(localStorage)) {
-				if (propertyName === 'darkMode' || propertyName === 'nextSessionId' || propertyName.startsWith(`${newId}/`)) continue;
-				let value = localStorage.getItem(propertyName);
-				try {
-					value = JSON.parse(value);
-				} catch {
-					// This might have been added to the localStorage by a extension rather than us. Let's just skip it.
-					continue;
-				}
-				localStorage.removeItem(propertyName);
-				if (value !== null) {
-					this.sessions[newId][propertyName] = value;
-					this.savePropertyToStorage(newId, propertyName);
-				}
-			}
-			this.switchSession(newId);
-		} else {
-			for (const key of Object.keys(localStorage)) {
-				const [sessionId, propertyName] = key.split('/');
-				if (propertyName === undefined) continue;
-				const value = this.loadPropertyFromStorage(sessionId, propertyName);
-				if (value !== null) {
-					this.sessions[sessionId] = this.sessions[sessionId] || {};
-					this.sessions[sessionId][propertyName] = value;
-				}
+				this.sessionsLoad();
+				this.sessionSwitch(this._currentSession);
 			};
-			this.switchSession(this.selectedSession);
+			request.onblocked = () => {
+				reject({isReady: false});
+
+				this._storageBlocked();
+			};
+			request.onupgradeneeded = this._storageMigration;
+		});
+	}
+
+	async getInstance() {
+		return (await this._dbState).instance;
+	}
+
+	async isDbReady() {
+		return (await this._dbState).isReady;
+	}
+
+	sessionCurrentId() {
+		return this._currentSession;
+	}
+
+	async sessionGet(sessionId = null) {
+		sessionId = this.constructor._formatKey(sessionId ?? this._currentSession);
+		if (!sessionId)
+			return;
+
+		if (sessionId in this._sessions)
+			return this._sessions[sessionId];
+		if (!await this.isDbReady())
+			return;
+		if (!await this.sessionExists(sessionId))
+			return;
+
+		let store = await this._sessionsStorageTransactionGet(true);
+		const data = await new Promise((resolve, reject) => {
+			let request = store.get(sessionId);
+
+			request.onsuccess = (event) => {
+				const session = event.target.result;
+				this._sessions[session.id] = session;
+
+				resolve(session);
+			};
+			request.onerror = (event) => {
+				this._transactionFailure();
+
+				reject();
+			};
+		});
+
+		return data;
+	}
+
+	async sessionsLoad() {
+		if (!await this.isDbReady())
+			return;
+
+		let store = await this._sessionsStorageTransactionGet(true);
+
+		return new Promise((resolve, reject) => {
+			let request = store.getAll();
+			request.onsuccess = (event) => {
+				event.target.result.forEach((session) => {
+					console.log('load', session);
+					if (session.id in this._sessions)
+						return;
+
+					this._sessions[session.id] = session;
+				});
+				this._sessionsLoaded = true;
+				this.dispatchEvent(
+					this._createTouchEvent({})
+				);
+
+				resolve();
+			};
+			request.onerror = (event) => {
+				this._transactionFailure();
+
+				reject();
+			};
+		});
+	}
+
+	sessionsGetList() {
+		return Object.entries(this._sessions).reverse();
+	}
+
+	async sessionSet(data, sessionId = null) {
+		delete data['id'];
+		if (sessionId) {
+			data['id'] = this.constructor._formatKey(sessionId);
 		}
+
+		let store = await this._sessionsStorageTransactionGet();
+		sessionId = await new Promise((resolve, reject) => {
+			let request = store.put(data);
+			request.onsuccess = (event) => {
+				data['id'] = event.target.result;
+				this._sessions[event.target.result] = data;
+
+				resolve(event.target.result)
+			};
+			request.onerror = (event) => {
+				this._transactionFailure();
+				reject();
+			};
+		});
+
+		return sessionId;
 	}
 
-	saveToStorage() {
-		for (const sessionId of Object.keys(this.sessions)) {
-			for (const propertyName of Object.keys(this.sessions[sessionId])) {
-				this.savePropertyToStorage(sessionId, propertyName);
-			}
+	async sessionCreate(sessionName = null) {
+		const sessionId = await this.sessionSet({});
+		if (!sessionId) {
+			return;
 		}
+
+		sessionName = sessionName ?? `MiguPad #${sessionId}`;
+		await this.setProperty('name', sessionName, sessionId, false, true);
+
+		let session = await this.sessionGet(sessionId)
+		this.dispatchEvent(
+			this._createTouchEvent(session)
+		);
+
+		return sessionId;
 	}
 
-	loadPropertyFromStorage(sessionId, propertyName) {
-		return JSON.parse(localStorage.getItem(`${sessionId}/${propertyName}`));
-	}
-
-	savePropertyToStorage(sessionId, propertyName) {
-		const value = this.sessions[sessionId][propertyName];
-		localStorage.setItem(`${sessionId}/${propertyName}`, JSON.stringify(value));
-	}
-
-	deletePropertyFromStorage(sessionId, propertyName) {
-		localStorage.removeItem(`${sessionId}/${propertyName}`);
-	}
-
-	getProperty(propertyName) {
-		return this.sessions[this.selectedSession]?.[propertyName];
-	}
-
-	setProperty(propertyName, value) {
-		if (this.sessions[this.selectedSession]) {
-			this.sessions[this.selectedSession][propertyName] = value;
-			if (this.saveQueue.indexOf(`${this.selectedSession}/${propertyName}`) === -1)
-				this.saveQueue.push(`${this.selectedSession}/${propertyName}`);
+	async sessionFromObject(obj, is_json = true) {
+		let sessionData = {};
+		for (let [propertyName, value] of Object.entries(obj)) {
+			if (propertyName === 'darkMode') continue;
+			if (is_json) value = JSON.parse(value);
+			sessionData[propertyName] = value;
 		}
-	}
 
-	switchSession(sessionId) {
-		this.selectedSession = sessionId;
-		localStorage.setItem('selectedSessionId', sessionId);
-		this.onchange?.();
-		this.onsessionchange?.();
-		for (const propertyName of Object.keys(this.sessionTemplate)) {
-			this.updateDependents(propertyName, this.getProperty(propertyName) ?? this.sessionTemplate[propertyName]);
+		const sessionId = await this.sessionSet(sessionData);
+		if (!sessionId) {
+			return;
 		}
+		this.setProperty('name', `MiguPad #${sessionId}`, sessionId, false);
+
+		this.dispatchEvent(
+			this._createTouchEvent(session)
+		);
+
+		return sessionId;
 	}
 
-	renameSession(sessionId, renameSessionName) {
-		this.sessions[sessionId]['name'] = renameSessionName;
-		this.savePropertyToStorage(sessionId, 'name');
-		this.onchange?.();
+	async sessionRename(name, sessionId = null) {
+		if (!await this.setProperty('name', name, sessionId)) {
+			return false;
+		}
+
+		const session = await this.sessionGet(sessionId);
+		this.dispatchEvent(
+			this._createTouchEvent(session)
+		);
+
+		return true;
 	}
 
-	deleteSession(sessionId) {
-		if (Object.keys(this.sessions).length === 1)
+	async sessionSwitch(sessionId = null) {
+		if (sessionId === this.sessionCurrentId()) {
+			return sessionId;
+		}
+
+		sessionId = this.constructor._formatKey(sessionId ?? this._currentSession);
+		if ((sessionId != 0 ^ !!sessionId) || !await this.sessionExists(sessionId)) {
+			sessionId = await this.sessionCreate();
+		}
+
+		this._updateCurrentSessionId(sessionId);
+
+		let session = await this.sessionGet(sessionId);
+		this.dispatchEvent(
+			this._createTouchEvent(session)
+		);
+		this.dispatchEvent(
+			this._createSwitchEvent(session)
+		);
+
+		return session.id;
+	}
+
+	async sessionDelete(sessionId) {
+		sessionId = this.constructor._formatKey(sessionId);
+
+		if (Object.keys(this._sessions).length === 1)
 			return;
 		if (!window.confirm("Are you sure you want to delete this session? This action can't be undone."))
 			return;
-		if (sessionId == this.selectedSession) {
-			const sessionIds = Object.keys(this.sessions);
-			const sessionIdx = sessionIds.indexOf(sessionId);
-			const newSessionId = sessionIds[sessionIdx - 1] ?? sessionIds[sessionIdx + 1];
-			this.switchSession(+newSessionId)
-		}
-		for (const propertyName of Object.keys(this.sessions[sessionId])) {
-			this.deletePropertyFromStorage(sessionId, propertyName);
-		}
-		delete this.sessions[sessionId];
-		this.onchange?.();
+		if (sessionId == this._currentSession)
+			return;
+
+		let store = await this._sessionsStorageTransactionGet();
+		let request = store.delete(sessionId);
+		request.onsuccess = async () => {
+			this.dispatchEvent(
+				this._createTouchEvent(this._sessions[sessionId])
+			);
+			delete this._sessions[sessionId];
+		};
 	}
 
-	createSession(newSessionName) {
-		const newId = this.getNewId();
-		this.sessions[newId] = { name: newSessionName };
-		this.savePropertyToStorage(newId, 'name');
-		onchange?.();
-		return newId;
+	async sessionExists(sessionId) {
+		sessionId = this.constructor._formatKey(sessionId);
+		if (!sessionId) {
+			return 0;
+		}
+
+		if (sessionId in this._sessions) {
+			return 1;
+		}
+
+		let store = await this._sessionsStorageTransactionGet(true);
+		const cnt = await new Promise((resolve, reject) => {
+			let request = store.count(sessionId);
+
+			request.onsuccess = (event) => resolve(event.target.result);
+			request.onerror = (event) => {
+				this._transactionFailure();
+
+				reject();
+			};
+		});
+
+		return cnt ? 2 : 0;
 	}
 
-	createSessionFromObject(obj, is_json = true) {
-		const newId = this.getNewId();
-		this.sessions[newId] = {};
-		for (const [propertyName, value] of Object.entries(obj)) {
-			if (propertyName === 'darkMode') continue;
-			if (is_json) value = JSON.parse(value);
-			this.sessions[newId][propertyName] = value;
-			this.savePropertyToStorage(newId, propertyName);
+	async getProperty(propertyName, sessionId = null) {
+		const session = await this.sessionGet(sessionId);
+		if (!session) {
+			return;
 		}
-		if (!this.sessions[newId].hasOwnProperty('name')) {
-			this.sessions[newId]['name'] = `MikuPad #${this.nextId + 1}`;
-			this.savePropertyToStorage(newId, 'name');
+
+		return session[propertyName];
+	}
+
+	async setProperty(propertyName, value, sessionId = null, override = true, writeThrough = false) {
+		sessionId = this.constructor._formatKey(sessionId);
+
+		let session = await this.sessionGet(sessionId);
+		if (!session) {
+			return 0;
 		}
-		onchange?.();
-		return newId;
+
+		if (session.hasOwnProperty(propertyName) && !override) {
+			return 1;
+		}
+		this._sessions[session.id][propertyName] = value;
+
+		if (writeThrough) {
+			this._storageWriteSessions([session.id]);
+			return 2;
+		}
+		this.addSessionToWriteQueue(session.id);
+
+		return 2;
+	}
+
+	addSessionToWriteQueue(sessionId) {
+		sessionId = this.constructor._formatKey(sessionId);
+		if (!sessionId) {
+			return;
+		}
+
+		if (this._writeQueue.includes(sessionId) || !(sessionId in this._sessions)) {
+			return;
+		}
+		this._writeQueue.push(sessionId);
+	}
+
+	_updateCurrentSessionId(sessionId) {
+		sessionId = this.constructor._formatKey(sessionId);
+		if (!sessionId) {
+			return;
+		}
+
+		this._currentSession = sessionId;
+		localStorage.setItem('currentSession', sessionId);
+	}
+
+	_createTouchEvent(detail) {
+		return new CustomEvent('touchsession', {detail: detail});
+	}
+
+	_createSwitchEvent(detail) {
+		return new CustomEvent('switchsession', {detail: detail});
+	}
+
+	async _storageMigration(event) {
+		const STORE_NAME = 'sessions';
+		let db = event.target.result;
+
+		switch(event.oldVersion) {
+		case 0:
+			const store = db.createObjectStore(STORE_NAME, {keyPath: 'id', autoIncrement: true});
+
+			const currentSession = localStorage.getItem('selectedSessionId');
+			if (currentSession != null) {
+				let sessions = {};
+				let z_session = {};
+				let z_put = false;
+				for (const key of Object.keys(localStorage)) {
+					let [sessionId, propertyName] = key.split('/');
+					if (propertyName === undefined) continue;
+
+					const value = JSON.parse(localStorage.getItem(`${sessionId}/${propertyName}`));
+					if (value !== null) {
+						if (propertyName == 'id') continue;
+
+						sessionId = SessionStorage._formatKey(sessionId);
+						// localStorage.removeItem(key);
+						if (sessionId == 0) {
+							z_put = true;
+							z_session[propertyName] = value;
+							continue;
+						}
+
+						sessions[sessionId] = sessions[sessionId] || {id: sessionId};
+						sessions[sessionId][propertyName] = value;
+					}
+				};
+
+				localStorage.setItem('currentSession', SessionStorage._formatKey(currentSession));
+				localStorage.removeItem('selectedSessionId');
+
+				Object.entries(sessions).map(([sessionId, session]) => {
+					store.put(session);
+				});
+				if (z_put) {
+					store.put(z_session);
+				}
+			}
+			break;
+  		}
+	}
+
+	async _storageWriteSessions(idList) {
+		if (!await this.isDbReady())
+			return;
+
+		let store = await this._sessionsStorageTransactionGet();
+		idList.map((id) => {
+			id = this.constructor._formatKey(id);
+			const session = this._sessions[id];
+			session['id'] = id;
+
+			store.put(session);
+		})
+
+	}
+
+	_storageBlocked(event) {
+		reportError('Unable to open storage. Close other tabs');
+	}
+
+	_transactionFailure() {
+		reportError('Storage transaction failed.');
+	}
+
+	async _sessionsStorageTransactionGet(readonly = false) {
+		if (!await this.isDbReady())
+			return;
+
+		let db = await this.getInstance();
+		let transaction = db.transaction("sessions", readonly ? "readonly" : "readwrite");
+		transaction.onabort = this._transactionFailure;
+
+		return transaction.objectStore("sessions");
+	}
+
+	static _formatKey(key) {
+		return key == null || key === "null" ? null : parseInt(key);
 	}
 }
 
@@ -1536,31 +1783,41 @@ function replaceUnprintableBytes(inputString) {
 	return replacedString;
 }
 
-function useSessionStorage(defaultPresets) {
+function useSessionStorage() {
 	const ref = useRef();
 	if (!ref.current)
-		ref.current = new SessionStorage(defaultPresets);
+		ref.current = new SessionStorage();
 	return [ref.current, (name, initialState) => useSessionState(ref.current, name, initialState)];
 }
 
 function useSessionState(sessionStorage, name, initialState) {
-	const savedState = useMemo(() => {
-		try {
-			return sessionStorage.getProperty(name);
-		} catch (e) {
-			reportError(e);
-			return null;
+	const [value, setValue] = useState(initialState);
+
+	useEffect(() => {
+		function updateOnSessionSwich(event) {
+			setValue(event.detail?.[name] ?? initialState);
 		}
+
+		const val = sessionStorage.getProperty(name);
+		val.then((value) => {
+			if (!value) {
+				return;
+			}
+			setValue(value);
+		})
+
+		sessionStorage.addEventListener('switchsession', updateOnSessionSwich);
+
+		return () => sessionStorage.removeEventListener('switchsession', updateOnSessionSwich);
 	}, []);
 
-	const [value, setValue] = useState(savedState ?? initialState);
-	sessionStorage.addDependent(name, setValue);
-
 	const updateState = (newValue) => {
-		setValue((prevValue) => {
-			const updatedValue = typeof newValue === 'function' ? newValue(prevValue) : newValue;
-			sessionStorage.setProperty(name, updatedValue);
-			return updatedValue;
+		setValue((oldValue) => {
+			const finalValue = typeof newValue === 'function' ? newValue(oldValue) : newValue;
+			console.log('upd', finalValue);
+			sessionStorage.setProperty(name, finalValue);
+
+			return finalValue;
 		});
 	};
 
@@ -1591,7 +1848,7 @@ function usePersistentState(name, initialState) {
 }
 
 export function App() {
-	const [sessionStorage, useSessionState] = useSessionStorage(defaultPresets);
+	const [sessionStorage, useSessionState] = useSessionStorage();
 	const promptArea = useRef();
 	const promptOverlay = useRef();
 	const undoStack = useRef([]);
@@ -1666,7 +1923,6 @@ export function App() {
 	// Update theme on the first render.
 	useMemo(() => !theme || switchTheme(theme, true), []);
 
-
 	const modifiedPrompt = useMemo(() => {
 		// assemble individual contexts if text not empty
 		const order = ["prefix","text","suffix"]
@@ -1691,9 +1947,9 @@ export function App() {
 		const injDepth = truncPromptLen > authorNoteDepth ? authorNoteDepth : truncPromptLen
 
 		const lines = truncPrompt.match(/.*\n?/g);
-		const injIndex = lines.length-injDepth-1
+		const injIndex = lines.length - injDepth-1
 		// inject an
-		lines.splice(injIndex,0,assembledAuthorNote)
+		lines.splice(injIndex, 0, assembledAuthorNote)
 		// if an, return an context, else return original truncated context
 		const authorNotePrompt = assembledAuthorNote != ""
 			? lines.join('')
@@ -1829,6 +2085,18 @@ export function App() {
 	}
 
 	useEffect(() => {
+		function sessionChanged() {
+			// TODO: Store the undo/redo in the session.
+			redoStack.current = [];
+			undoStack.current = [];
+			setUndoHovered(false);
+		}
+		sessionStorage.addEventListener('switchsession', sessionChanged);
+
+		return () => sessionStorage.removeEventListener('switchsession', sessionChanged);
+	}, []);
+
+	useEffect(() => {
 		const adjustProbsPosition = () => {
 			const probsElement = document.getElementById('probs');
 			if (!probsElement) return;
@@ -1940,8 +2208,9 @@ export function App() {
 			const { altKey, ctrlKey, shiftKey, key, defaultPrevented } = e;
 			if (defaultPrevented)
 				return;
+
 			switch (`${altKey}:${ctrlKey}:${shiftKey}:${key}`) {
-			case 'false:false:true:Enter':
+			// case 'false:false:true:Enter':
 			case 'false:true:false:Enter':
 				predict();
 				break;
@@ -2127,13 +2396,6 @@ export function App() {
 			setTheme(value);
 	}
 
-	function sessionChanged() {
-		// TODO: Store the undo/redo in the session.
-		redoStack.current = [];
-		undoStack.current = [];
-		setUndoHovered(false);
-	}
-
 	const probs = useMemo(() =>
 		showProbs && promptChunks[currentPromptChunk?.index]?.completion_probabilities?.[0]?.probs,
 		[promptChunks, currentPromptChunk, showProbs]);
@@ -2184,9 +2446,7 @@ export function App() {
 				]}/>
 			<div class="horz-separator"/>
 			<${CollapsibleGroup} label="Sessions">
-				<${Sessions} sessionStorage=${sessionStorage}
-					disabled=${!!cancel}
-					onSessionChange=${sessionChanged}/>
+				<${Sessions} sessionStorage=${sessionStorage} disabled=${!!cancel} />
 			</${CollapsibleGroup}>
 			<${CollapsibleGroup} label="Presets" expanded>
 				<${InputBox} label="Server"
@@ -2294,34 +2554,37 @@ export function App() {
 				<label className="TextArea">
 					Memory
 					<textarea
-					readOnly=${!!cancel}
-					placeholder="Anything written here will be injected at the head of the prompt. Tokens here DO count towards the Context Limit."
-					defaultValue=${memoryTokens.text}
-					value=${memoryTokens.text}
-					onInput=${(e) => handleMemoryTokensChange("text", e.target.value) }
-					id="memory-area"/>
+						readOnly=${!!cancel}
+						placeholder="Anything written here will be injected at the head of the prompt. Tokens here DO count towards the Context Limit."
+						defaultValue=${memoryTokens.text}
+						value=${memoryTokens.text}
+						onInput=${(e) => handleMemoryTokensChange("text", e.target.value) }
+						id="memory-area"
+					/>
 					<button
-					className="textAreaSettings"
-					disabled=${!!cancel}
-					onClick=${() => toggleModal("memory")}>
-
-					<svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="-1 -5 8 7" xmlns="http://www.w3.org/2000/svg"><path d="M0 0 3-3C3-4 3-5 5-5L4-4 5-3 6-4C6-2 5-2 4-2L1 1C0 2-1 1 0 0"></path></svg>
+						className="textAreaSettings"
+						disabled=${!!cancel}
+						onClick=${() => toggleModal("memory")}
+					>
+						<svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="-1 -5 8 7" xmlns="http://www.w3.org/2000/svg"><path d="M0 0 3-3C3-4 3-5 5-5L4-4 5-3 6-4C6-2 5-2 4-2L1 1C0 2-1 1 0 0"></path></svg>
 					</button>
 				</label>
 				<label className="TextArea">
 					Author's Note
 					<textarea
-					readOnly=${!!cancel}
-					placeholder="Anything written here will be injected ${authorNoteDepth} newlines from bottom into context."
-					defaultValue=${authorNoteTokens.text}
-					value=${authorNoteTokens.text}
-					onInput=${(e) => handleauthorNoteTokensChange("text", e.target.value) }
-					id="an-area"/>
+						readOnly=${!!cancel}
+						placeholder="Anything written here will be injected ${authorNoteDepth} newlines from bottom into context."
+						defaultValue=${authorNoteTokens.text}
+						value=${authorNoteTokens.text}
+						onInput=${(e) => handleauthorNoteTokensChange("text", e.target.value) }
+						id="an-area"
+					/>
 					<button
-					className="textAreaSettings"
-					disabled=${!!cancel}
-					onClick=${() => toggleModal("an")}>
-					<svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="-1 -5 8 7" xmlns="http://www.w3.org/2000/svg"><path d="M0 0 3-3C3-4 3-5 5-5L4-4 5-3 6-4C6-2 5-2 4-2L1 1C0 2-1 1 0 0"></path></svg>
+						className="textAreaSettings"
+						disabled=${!!cancel}
+						onClick=${() => toggleModal("an")}
+					>
+						<svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="-1 -5 8 7" xmlns="http://www.w3.org/2000/svg"><path d="M0 0 3-3C3-4 3-5 5-5L4-4 5-3 6-4C6-2 5-2 4-2L1 1C0 2-1 1 0 0"></path></svg>
 					</button>
 				</label>
 				<button
@@ -2390,7 +2653,7 @@ export function App() {
 					readOnly=${!!cancel} value=${authorNoteTokens.prefix} onValueChange=${(value) => handleauthorNoteTokensChange("prefix", value)}/>
 				<${InputBox} label="Suffix" type="text" placeholder="[/INST]"
 					readOnly=${!!cancel} value=${authorNoteTokens.suffix} onValueChange=${(value) => handleauthorNoteTokensChange("suffix", value)}/>
-				<${InputBox} label="AN Injection Depth (0-N)" type="number" step="1"
+				<${InputBox} label="AN Injection Depth (0-N)" type="number" inputmode="numeric" step="1"
 					readOnly=${!!cancel} value=${authorNoteDepth} onValueChange=${handleAuthorNoteDepthChange}/>
 			</div>
 			<textarea
