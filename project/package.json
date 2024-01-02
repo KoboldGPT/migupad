@@ -1,6 +1,6 @@
 {
-  "name": "mikupad",
-  "source": "mikupad.html",
+  "name": "migupad",
+  "source": "migupad.html",
   "scripts": {
     "start": "parcel",
     "build": "parcel build --no-optimize"

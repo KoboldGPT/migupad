@@ -11,10 +11,10 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-xcopy /y mikupad.html project >NUL
+xcopy /y migupad.html project >NUL
 
 cd project
 call npm install
 call npm start build
-copy /y .\dist\mikupad.html ..\mikupad_compiled.html
+copy /y .\dist\migupad.html ..\migupad_compiled.html
 cd ..
