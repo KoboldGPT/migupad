@@ -1,6 +1,8 @@
 <!doctype html>
 <meta charset="utf-8">
-<!-- mikupad by Anon
+<!-- mikupad by
+  -- 2023 Anon
+  -- 2024 KoboldGPT
   --
   -- To the extent possible under law, the person who associated CC0 with
   -- mikupad has waived all copyright and related or neighboring rights
@@ -1143,8 +1145,12 @@ function Sessions({ sessionStorage, disabled }) {
 			setVersion(v => v + 1);
 		}
 		sessionStorage.addEventListener('touchsession', incrementVersion);
+		sessionStorage.addEventListener('switchsession', incrementVersion);
 
-		return () => sessionStorage.removeEventListener('touchsession', incrementVersion);
+		return () => {
+			sessionStorage.removeEventListener('touchsession', incrementVersion);
+			sessionStorage.removeEventListener('switchsession', incrementVersion);
+		};
 	}, []);
 
 	const switchSession = (sessionId) => sessionStorage.sessionSwitch(sessionId);
@@ -1530,6 +1536,7 @@ class SessionStorage extends EventTarget {
 		this.dispatchEvent(
 			this._createSwitchEvent(session)
 		);
+		console.log('switch', session.id);
 
 		return session.id;
 	}
