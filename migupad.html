@@ -1283,7 +1283,7 @@ function Sessions({ sessionStorage, disabled }) {
 					<li key=${sessionId}>
 						<a className="Session ${currentSessionId == sessionId ? 'selected' : ''}"
 							onClick=${() => switchSession(sessionId)}
-							title="Id: ${sessionId}"
+							title="Id: ${sessionId}\nCreation date: ${session.born_date ?? '-'}"
 						>
 							${isRenaming === sessionId ? html`
 								<input
@@ -1524,7 +1524,9 @@ class SessionStorage extends EventTarget {
 	}
 
 	async sessionCreate(sessionName = null) {
-		const sessionId = await this.sessionSet({});
+		const sessionId = await this.sessionSet({
+			born_date: (new Date).toUTCString()
+		});
 		if (!sessionId) {
 			return;
 		}
