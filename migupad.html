@@ -1192,7 +1192,8 @@ function Sessions({ sessionStorage, disabled }) {
 			return;
 
 		const sessionId = await sessionStorage.sessionSet(session);
-		await sessionStorage.sessionRename(session?.['name'] ?? 'Migupad copy', sessionId);
+		await sessionStorage.sessionRename(session.name ?? 'Migupad copy', sessionId);
+		await sessionStorage.setProperty('lastCopyDate', (new Date).toUTCString(), sessionId);
 		await sessionStorage.sessionSwitch(sessionId);
 	};
 
@@ -1283,7 +1284,7 @@ function Sessions({ sessionStorage, disabled }) {
 					<li key=${sessionId}>
 						<a className="Session ${currentSessionId == sessionId ? 'selected' : ''}"
 							onClick=${() => switchSession(sessionId)}
-							title="Id: ${sessionId}\nCreation date: ${session.born_date ?? '-'}"
+							title="Id: ${sessionId}\nCreation date: ${session.bornDate ?? '-'}\nLast copy date: ${session.lastCopyDate ?? '-'}"
 						>
 							${isRenaming === sessionId ? html`
 								<input
@@ -1525,7 +1526,7 @@ class SessionStorage extends EventTarget {
 
 	async sessionCreate(sessionName = null) {
 		const sessionId = await this.sessionSet({
-			born_date: (new Date).toUTCString()
+			bornDate: (new Date).toUTCString()
 		});
 		if (!sessionId) {
 			return;
