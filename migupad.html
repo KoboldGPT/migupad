@@ -12,6 +12,10 @@
   -- work.  If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
   -->
 <title>migupad</title>
+
+<!-- До лучших времён -->
+<!-- <meta name="viewport" content="width=device-width, initial-scale=1.0"> -->
+
 <script type="importmap">
 {
 	"imports": {
@@ -108,8 +112,7 @@ body {
 	position: relative;
 	font-size: 1.125rem;
 	max-width: 36em;
-	margin-right: auto;
-	margin-left: auto;
+	margin: 0 auto;
 	flex: 1;
 	display: flex;
 	flex-direction: column;
@@ -1284,7 +1287,7 @@ function Sessions({ sessionStorage, disabled }) {
 					<li key=${sessionId}>
 						<a className="Session ${currentSessionId == sessionId ? 'selected' : ''}"
 							onClick=${() => switchSession(sessionId)}
-							title="Id: ${sessionId}\nCreation date: ${session.bornDate ?? '-'}\nLast copy date: ${session.lastCopyDate ?? '-'}"
+							title="Id: ${sessionId}\nCreation date: ${session.bornDate ?? '-'}\nLast copy date: ${session.lastCopyDate ?? '-'}\nVersion: ${session.version ?? 0}"
 						>
 							${isRenaming === sessionId ? html`
 								<input
@@ -1526,6 +1529,7 @@ class SessionStorage extends EventTarget {
 
 	async sessionCreate(sessionName = null) {
 		const sessionId = await this.sessionSet({
+			version: 1,
 			bornDate: (new Date).toUTCString()
 		});
 		if (!sessionId) {
