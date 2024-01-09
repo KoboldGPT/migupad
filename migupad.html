@@ -308,10 +308,11 @@ html.monospace-dark #sidebar {
 }
 .vbox {
 	flex: none;
-	display: grid;
+	display: flex;
 	grid: auto / minmax(min-content, 1fr) auto-flow;
 	grid-template-rows: 0fr 0fr 0fr 0fr;
 	gap: 4px;
+	margin-bottom: 4px;
 }
 
 .InputBox, .SelectBox, .TextArea {
@@ -493,13 +494,12 @@ button.completing {
 	margin-top: 4px;
 }
 
-.Sessions {
-	display: flex;
+.scrollable-area {
 	flex: auto;
 	flex-direction: row;
 	gap: 4px;
 }
-.Sessions > ul {
+.scrollable-area > ul {
 	list-style-type: none;
 	margin: 0;
 	padding: 0;
@@ -508,19 +508,19 @@ button.completing {
 	width: 100%;
 	background: var(--color-base-40);
 }
-html.monospace-dark .Sessions > ul {
+html.monospace-dark .scrollable-area > ul {
 	background: var(--color-base-20);
 }
-.Sessions.disabled > ul {
+.scrollable-area.disabled > ul {
 	background: var(--color-base-50);
 	pointer-events: auto;
 }
 
-.Sessions > ul > li {
+.scrollable-area > ul > li {
 	display: flex;
 	align-items: center;
 }
-.Sessions.disabled > ul > li {
+.scrollable-area.disabled > ul > li {
 	pointer-events: none;
 }
 
@@ -1264,7 +1264,13 @@ function Sessions({ sessionStorage, disabled }) {
 	const currentSessionId = sessionStorage.sessionCurrentId();
 
 	return html`
-		<div className="Sessions ${disabled ? 'disabled' : ''}">
+		<div className="scrollable-area ${disabled ? 'disabled' : ''}">
+			<div className="vbox">
+				<button disabled=${disabled} onClick=${startCreateSession}>+</button>
+				<button disabled=${disabled} onClick=${importSession}>Import</button>
+				<button disabled=${disabled} onClick=${exportSession}>Export</button>
+				<button disabled=${disabled} onClick=${copySession}>Copy</button>
+			</div>
 			<ul>
 				${isCreating && html`
 					<li key=-1>
@@ -1324,12 +1330,6 @@ function Sessions({ sessionStorage, disabled }) {
 					</li>
 				`)}
 			</ul>
-			<div className="vbox">
-				<button disabled=${disabled} onClick=${startCreateSession}>Create</button>
-				<button disabled=${disabled} onClick=${importSession}>Import</button>
-				<button disabled=${disabled} onClick=${exportSession}>Export</button>
-				<button disabled=${disabled} onClick=${copySession}>Copy</button>
-			</div>
 		</div>`;
 }
 
@@ -1354,7 +1354,10 @@ function StopWords({ stopWords, setStopWords, disabled }) {
 	const cancelSvg = html`<svg width="16" height="16" viewBox="0 0 128 128"><circle cx="64" cy="64" r="64" fill="var(--color-dark)"/><path d="M100.3 90.4 73.9 64l26.3-26.4c.4-.4.4-1 0-1.4l-8.5-8.5c-.4-.4-1-.4-1.4 0L64 54.1 37.7 27.8c-.4-.4-1-.4-1.4 0l-8.5 8.5c-.4.4-.4 1 0 1.4L54 64 27.7 90.3c-.4.4-.4 1 0 1.4l8.5 8.5c.4.4 1.1.4 1.4 0L64 73.9l26.3 26.3c.4.4 1.1.4 1.5.1l8.5-8.5c.4-.4.4-1 0-1.4z" fill="var(--color-light)"/></svg>`;
 
 	return html`
-		<div className="Sessions ${disabled ? 'disabled' : ''}">
+		<div className="scrollable-area ${disabled ? 'disabled' : ''}">
+			<div className="vbox">
+				<button disabled=${disabled} onClick=${(e) => (setNewWord(''), setIsCreating(true))}>+</button>
+			</div>
 			<ul>
 				${isCreating && html`
 					<li>
@@ -1384,9 +1387,6 @@ function StopWords({ stopWords, setStopWords, disabled }) {
 					</li>
 				`)}
 			</ul>
-			<div className="vbox">
-				<button disabled=${disabled} onClick=${(e) => (setNewWord(''), setIsCreating(true))}>+</button>
-			</div>
 		</div>`;
 }
 
